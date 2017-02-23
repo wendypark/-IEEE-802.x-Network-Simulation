@@ -1,13 +1,12 @@
-from Queue import *
+# from Queue import *
 import random
 import math
 
 
-# maximum num of packets that could be in buffer
 MAXBUFFER =  100
 LENGTH = 0
 TIME = 0
-BUFFER = Queue(MAXBUFFER)
+
 
 
 # SECTION: 3.1
@@ -25,27 +24,56 @@ class Event(object):
 	def curEventType(self):
 		return self.e_type
 
-	# def nextEvent(self,):
+	# def nextEvent(self):
 
-	# def previousEvent(self,):
-
+	# def previousEvent(self):
 
 
 # SECTION: 3.1
 # maintain all the events sorted in increasing order of time
 class GlobalEventList(object):
-	def __init__(self, eventList=None):
-		if eventList is None:
+	def __init__(self, event_list=None):
+		if event_list is None:
 			self.lst = []
 
 	def insertEvent(self, incoming_event):
 		self.lst.append(incoming_event)
-		# print self.lst[0]
+
 		# sort after appending new event
 		self.lst.sort(key=lambda x: x.e_time)
 
 	def removeFirstEvent(self):
 		self.lst.pop(0)
+
+
+
+# SECTION: 3.1
+class Buffer(object):
+	def __init__(self, max_buffer=None):
+		self.max_b = max_buffer
+		buff = Queue(max_buffer)
+
+	def insertPacket(self, incoming_packet):
+		if buff.size() <= self.max_b:
+			buff.enqueue(incoming_packet)
+		else:
+			print "buffer is full. packet dropped."
+
+	def removePacket(self):
+		if buff.size() != 0:
+			buff.dequeue()
+		else:
+			print "buffer is empty"
+
+
+
+# SECTION: 3.3
+def processArrivalEvent():
+
+
+
+# SECTION: 3.4
+def processDepartureEvent():
 
 
 
@@ -59,19 +87,16 @@ def negativeExponenetiallyDistributedTime(rate):
 # SECTION: 3.1/3.2
 if __name__ == '__main__':
 	first_arrival_event = 1
+	initial_arrival_rate = 0.1
 
 	event = Event()
 	gel = GlobalEventList()
 
 	event.setEventType(first_arrival_event)
-
-	# 0.1 is the initial arrival rate
-	event.setEventTime(TIME + negativeExponenetiallyDistributedTime(0.1))
+	event.setEventTime(TIME + negativeExponenetiallyDistributedTime(initial_arrival_rate))
 
 	# inserting our first event
 	gel.insertEvent(event)
-
-
 
 	for i in range(0,100000):
 		# arrival
@@ -80,3 +105,4 @@ if __name__ == '__main__':
 
 		# departure
 		else:
+
