@@ -3,11 +3,16 @@ import random
 import math
 
 
-MAXBUFFER =  100
-LENGTH = 0
-TIME = 0
+MAXBUFFER =  1		# max size of buffer
+LENGTH = 0 			# number of packets in queue
+TIME = 0			# current time
+SERVICE_RATE = 1	# u
+ARRIVAL_RATE = 0.1  # lambda
+
+PACKETS_DROPPED = 0 # number of packets dropped
 
 
+# 
 
 # SECTION: 3.1
 class Event(object):
@@ -23,6 +28,9 @@ class Event(object):
 
 	def curEventType(self):
 		return self.e_type
+
+	def getEventTime(self):
+		return self.e_time
 
 	# def nextEvent(self):
 
@@ -45,18 +53,22 @@ class GlobalEventList(object):
 	def removeFirstEvent(self):
 		self.lst.pop(0)
 
+	def getFirstEvent(self):
+		return self.lst[0]
+
 
 
 # SECTION: 3.1
 class Buffer(object):
-	def __init__(self, max_buffer=None):
+	def __init__(self, max_buffer):
 		self.max_b = max_buffer
 		buff = Queue(max_buffer)
 
 	def insertPacket(self, incoming_packet):
-		if buff.size() <= self.max_b:
+		if buff.size() < self.max_b:
 			buff.enqueue(incoming_packet)
 		else:
+			PACKETS_DROPPED += 1
 			print "buffer is full. packet dropped."
 
 	def removePacket(self):
@@ -66,9 +78,27 @@ class Buffer(object):
 			print "buffer is empty"
 
 
+class Packet(object):
+	def __init__(self, service_time):
+		self.service_t = service_time
+
+
+
 
 # SECTION: 3.3
-def processArrivalEvent():
+def processArrivalEvent(buff, gel):
+	TIME += gel.getFirstEvent().getEventTime()
+	
+	next_arrival_time = TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE)
+	new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
+	
+	new_arrival_event = Event()
+	new_arrival_event.setEventType(1)
+	new_arrival_event.setEventTime(TIME + negativeExponenetiallyDistributedTime(next_arrival_time))
+
+	gel.insertEvent(event)
+
+
 
 
 
@@ -98,11 +128,12 @@ if __name__ == '__main__':
 	# inserting our first event
 	gel.insertEvent(event)
 
-	for i in range(0,100000):
+	buff = Buffer(MAXBUFFER)
+
+	for i in range(0, 100000):
 		# arrival
-		if gel.curEventType() == 1:
-
-
+		if gel.curEventType() == 1: # first event
+			processDepartureEvent(buff, gel)
 		# departure
 		else:
 
