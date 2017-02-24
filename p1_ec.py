@@ -125,6 +125,8 @@ def processArrivalEvent(buff, gel):
 
 	MEAN_QUEUE_LENGTH += buff.curBufferSize() * time_difference
 	
+	# SECTION: 3.8 EC
+	# Pareto Distribution for arrival rate 
 	next_arrival_time = TIME + random.paretovariate(ARRIVAL_RATE)
 	new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
 	
@@ -183,6 +185,7 @@ def processDepartureEvent(buff, gel):
 
 	#system not empty
 	if LENGTH > 0:
+
 		packet_transmit_time = buff.curPacketServiceTime()
 		buff.removePacket()
 
@@ -201,12 +204,6 @@ def negativeExponenetiallyDistributedTime(rate):
 	u = random.random()
 	return ((-1/rate)*math.log(1-u))
 
-# SECTION: 3.8 
-# EC: Pareto Distribution 
-def pareto_distribution(rate):
-	return
-
-
 def calculate_stats(exp, MAXBUFFER, ARRIVAL_RATE):
 	
 	# Event type
@@ -217,6 +214,9 @@ def calculate_stats(exp, MAXBUFFER, ARRIVAL_RATE):
 	event = Event()
 	gel = GlobalEventList()
 	event.setEventType(first_arrival_event)
+
+	# SECTION: 3.8 EC
+	# Pareto Distribution for arrival rate 
 	event.setEventTime(TIME + random.paretovariate(ARRIVAL_RATE))
 
 	# inserting our first event
