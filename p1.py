@@ -1,7 +1,6 @@
 import random
 import math
 
-
 MAXBUFFER = float('inf')	# max size of buffer
 LENGTH = 0 					# number of packets in queue
 TIME = 0					# current time
@@ -104,7 +103,7 @@ class Buffer(object):
 		if len(self.buff) != 0:
 			self.buff.pop() # remove last element in list or first in queue
 		else:
-			print "buffer is empty"
+			print("buffer is empty")
 
 	def curBufferSize(self):
 		return len(self.buff)
@@ -141,7 +140,8 @@ def processArrivalEvent(buff, gel):
 	
 	new_arrival_event = Event()
 	new_arrival_event.setEventType(1)
-	new_arrival_event.setEventTime(TIME + negativeExponenetiallyDistributedTime(next_arrival_time))
+	new_arrival_event.setEventTime(next_arrival_time)
+	#new_arrival_event.setEventTime(TIME + negativeExponenetiallyDistributedTime(next_arrival_time))
 
 	gel.insertEvent(new_arrival_event)
 
@@ -155,19 +155,19 @@ def processArrivalEvent(buff, gel):
 
 		gel.insertEvent(departure_event)
 
-		LENGTH = 1
+		#LENGTH += 1
 	
 	else:
 		# buffer not full
 		if LENGTH - 1 < MAXBUFFER:
 			buff.insertPacket(new_packet)
-			LENGTH = buff.curBufferSize() + 1
+			#LENGTH = buff.curBufferSize() + 1
 
 		# full buffer
 		else:
 			PACKETS_DROPPED += 1
-
-	MEAN_QUEUE_LENGTH += buff.curBufferSize()
+	LENGTH += 1
+	MEAN_QUEUE_LENGTH += buff.curBufferSize() 
 	# SERVER_BUSY_TIME = 
 
 
@@ -198,8 +198,8 @@ def processDepartureEvent(buff, gel):
 		departure_event.setEventTime(departure_event_time)
 
 		gel.insertEvent(departure_event)
-
-
+	else:
+		return 
 
 # SECTION: 3.6
 def negativeExponenetiallyDistributedTime(rate):
@@ -234,8 +234,8 @@ if __name__ == '__main__':
 
 		gel.removeFirstEvent()
 
-	print MEAN_QUEUE_LENGTH
-	print TIME
+	print(MEAN_QUEUE_LENGTH)
+	print(TIME)
 	print ("Mean Queue-Length = %f" % (MEAN_QUEUE_LENGTH/TIME))
 	print ("Number of Packets Dropped = %f" % PACKETS_DROPPED)
 
