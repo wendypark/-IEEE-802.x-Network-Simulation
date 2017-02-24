@@ -127,7 +127,7 @@ def processArrivalEvent(buff, gel):
 	
 	# SECTION: 3.8 EC
 	# Pareto Distribution for arrival rate 
-	next_arrival_time = TIME + random.paretovariate(ARRIVAL_RATE)
+	next_arrival_time = TIME + pareto_distribution(ARRIVAL_RATE)
 	new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
 	
 	new_arrival_event = Event()
@@ -204,6 +204,13 @@ def negativeExponenetiallyDistributedTime(rate):
 	u = random.random()
 	return ((-1/rate)*math.log(1-u))
 
+# SECTION: 3.8 EC
+# Pareto Distribution 
+def pareto_distribution(rate):
+	u = random.random()
+	return (1/(1-u)**(1/rate))
+	
+
 def calculate_stats(exp, MAXBUFFER, ARRIVAL_RATE):
 	
 	# Event type
@@ -217,7 +224,7 @@ def calculate_stats(exp, MAXBUFFER, ARRIVAL_RATE):
 
 	# SECTION: 3.8 EC
 	# Pareto Distribution for arrival rate 
-	event.setEventTime(TIME + random.paretovariate(ARRIVAL_RATE))
+	event.setEventTime(TIME + pareto_distribution(ARRIVAL_RATE))
 
 	# inserting our first event
 	gel.insertEvent(event)
