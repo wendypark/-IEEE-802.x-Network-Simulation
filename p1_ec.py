@@ -1,5 +1,7 @@
 import random
 import math
+#import scipy.stats 
+#import pareto_distribution
 
 #global variables 
 MAXBUFFER = float('inf')	# max size of buffer for exp 1
@@ -123,7 +125,7 @@ def processArrivalEvent(buff, gel):
 
 	MEAN_QUEUE_LENGTH += buff.curBufferSize() * time_difference
 	
-	next_arrival_time = TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE)
+	next_arrival_time = TIME + random.paretovariate(ARRIVAL_RATE)
 	new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
 	
 	new_arrival_event = Event()
@@ -215,7 +217,7 @@ def calculate_stats(exp, MAXBUFFER, ARRIVAL_RATE):
 	event = Event()
 	gel = GlobalEventList()
 	event.setEventType(first_arrival_event)
-	event.setEventTime(TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE))
+	event.setEventTime(TIME + random.paretovariate(ARRIVAL_RATE))
 
 	# inserting our first event
 	gel.insertEvent(event)
@@ -280,8 +282,7 @@ if __name__ == '__main__':
 
 			#declare global to avoid scoping issues 
 			global MAXBUFFER
-			MAXBUFFER = y
-			calculate_stats(exp=3, MAXBUFFER=MAXBUFFER, ARRIVAL_RATE=x)
+			calculate_stats(exp=3, MAXBUFFER=y, ARRIVAL_RATE=x)
 
 			#reset global vairables 
 			LENGTH = 0 					# number of packets in queue + server 
@@ -290,7 +291,5 @@ if __name__ == '__main__':
 			PACKETS_DROPPED = 0 		# number of packets dropped
 			MEAN_QUEUE_LENGTH = 0		# length of packet * time 
 			SERVER_BUSY_TIME = 0		# server busy time
-
-
 
 
