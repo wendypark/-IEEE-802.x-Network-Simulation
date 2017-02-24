@@ -6,7 +6,7 @@ MAXBUFFER = float('inf')	# max size of buffer
 LENGTH = 0 					# number of packets in queue
 TIME = 0					# current time
 SERVICE_RATE = 1			# u
-ARRIVAL_RATE = 0.1  		# lambda
+ARRIVAL_RATE = 0.25 			# lambda
 
 PACKETS_DROPPED = 0 		# number of packets dropped
 
@@ -32,7 +32,7 @@ class Event(object):
 	def curEventType(self):
 		return self.e_type
 
-	def getEventTime(self):
+	def eventTime(self):
 		return self.e_time
 
 	# def nextEvent(self):
@@ -73,17 +73,17 @@ class GlobalEventList(object):
 		#self.lst.append(incoming_event)
 		# print "UNSORTED"
 		# for i in range(0,len(self.lst)):
-		# 	print self.lst[i].getEventTime()
+		# 	print self.lst[i].eventTime()
 		# sort after appending new event
 		#self.lst.sort(key=lambda x: x.e_time)
 		# print "SORTED"
 		# for i in range(0,len(self.lst)):
-		# 	print self.lst[i].getEventTime()
+		# 	print self.lst[i].eventTime()
 	
 	def removeFirstEvent(self):
 		self.head = self.head.next
 
-	def getFirstEvent(self):
+	def firstEvent(self):
 		return self.head
 
 
@@ -98,7 +98,7 @@ class Buffer(object):
 
 	def insertPacket(self, incoming_packet):
 		# insert at beginning of list or end of queue
-		self.buff.insert(0,incoming_packet)
+		self.buff.insert(0, incoming_packet)
 
 	def removePacket(self):
 		if len(self.buff) != 0:
@@ -134,14 +134,17 @@ def processArrivalEvent(buff, gel):
 	global SERVER_BUSY_TIME
 	global PACKETS_DROPPED
 
-	TIME = gel.getFirstEvent().getEventTime()
+	time_difference = gel.firstEvent().eventTime() - TIME
+	TIME += time_difference
+
+	MEAN_QUEUE_LENGTH += buff.curBufferSize() * time_difference
 	
 	next_arrival_time = TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE)
 	new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
 	
 	new_arrival_event = Event()
 	new_arrival_event.setEventType(1)
-	new_arrival_event.setEventTime(TIME + negativeExponenetiallyDistributedTime(next_arrival_time))
+	new_arrival_event.setEventTime(next_arrival_time)
 
 	gel.insertEvent(new_arrival_event)
 
@@ -167,8 +170,8 @@ def processArrivalEvent(buff, gel):
 		else:
 			PACKETS_DROPPED += 1
 
-	MEAN_QUEUE_LENGTH += buff.curBufferSize()
-	# SERVER_BUSY_TIME = 
+		SERVER_BUSY_TIME += time_difference # at a particular queue
+
 
 
 
@@ -179,10 +182,12 @@ def processDepartureEvent(buff, gel):
 	global MEAN_QUEUE_LENGTH
 	global SERVER_BUSY_TIME
 
-	TIME = gel.getFirstEvent().getEventTime()
+	time_difference = gel.firstEvent().eventTime() - TIME # time of the "width" of queue
+	TIME += time_difference
 
-	MEAN_QUEUE_LENGTH += buff.curBufferSize()
-	# SERVER_BUSY_TIME = 
+	MEAN_QUEUE_LENGTH += buff.curBufferSize() * time_difference
+	
+	SERVER_BUSY_TIME += time_difference # at a particular queue
 
 	LENGTH -= 1
 
@@ -225,11 +230,11 @@ if __name__ == '__main__':
 
 	for i in range(0, 100000):
 		# arrival
-		if gel.getFirstEvent().curEventType() == 1: # first event
+		if gel.firstEvent().curEventType() == 1: # first event
 			processArrivalEvent(buff, gel)
 			
 		# departure
-		elif gel.getFirstEvent().curEventType() == 2:
+		elif gel.firstEvent().curEventType() == 2:
 			processDepartureEvent(buff, gel)
 
 		gel.removeFirstEvent()
@@ -237,6 +242,7 @@ if __name__ == '__main__':
 	print MEAN_QUEUE_LENGTH
 	print TIME
 	print ("Mean Queue-Length = %f" % (MEAN_QUEUE_LENGTH/TIME))
+	print ("Utilization = %f" % (SERVER_BUSY_TIME/TIME))
 	print ("Number of Packets Dropped = %f" % PACKETS_DROPPED)
 
 
