@@ -1,19 +1,19 @@
-# from Queue import *
 import random
 import math
 
 
-MAXBUFFER = float('inf')		# max size of buffer
-LENGTH = 0 			# number of packets in queue
-TIME = 0			# current time
-SERVICE_RATE = 1	# u
-ARRIVAL_RATE = 0.1  # lambda
+MAXBUFFER = float('inf')	# max size of buffer
+LENGTH = 0 					# number of packets in queue
+TIME = 0					# current time
+SERVICE_RATE = 1			# u
+ARRIVAL_RATE = 0.1  		# lambda
 
-PACKETS_DROPPED = 0 # number of packets dropped
+PACKETS_DROPPED = 0 		# number of packets dropped
 
 MEAN_QUEUE_LENGTH = 0
 SERVER_BUSY_TIME = 0
 
+IN_BUFFER = 0
 
 
 # SECTION: 3.1
@@ -21,6 +21,7 @@ class Event(object):
 	def __init__(self, event_time=None, event_type=None):
 		self.e_time = event_time
 		self.e_type = event_type
+		self.next = None
 
 	def setEventType(self, ev_type):
 		self.e_type = ev_type
@@ -39,30 +40,51 @@ class Event(object):
 	# def previousEvent(self):
 
 
-
 # SECTION: 3.1
-# maintain all the events sorted in increasing order of time
 class GlobalEventList(object):
 	def __init__(self, event_list=None):
-		if event_list is None:
-			self.lst = []
+		self.head = None
 
+	# empty list
 	def insertEvent(self, incoming_event):
-		self.lst.append(incoming_event)
+		if self.head is None:
+			incoming_event.next = self.head # points to nothing
+			self.head = incoming_event		# becomes head
+
+		# at least one element in there
+		elif self.head.e_time >= incoming_event.e_time:
+			incoming_event.next = self.head # points to previous head
+			self.head = incoming_event		# becomes head
+
+		else:
+			cur_event = self.head
+			while cur_event.next is not None and cur_event.next.e_time < incoming_event.e_time:
+				cur_event = cur_event.next
+
+			incoming_event.next = cur_event.next
+			cur_event.next = incoming_event
+
+		# cur = self.head
+		# print "sorted"
+		# while cur.next is not None:
+		# 	print cur.e_time
+		# 	cur = cur.next
+
+		#self.lst.append(incoming_event)
 		# print "UNSORTED"
 		# for i in range(0,len(self.lst)):
 		# 	print self.lst[i].getEventTime()
 		# sort after appending new event
-		self.lst.sort(key=lambda x: x.e_time)
+		#self.lst.sort(key=lambda x: x.e_time)
 		# print "SORTED"
 		# for i in range(0,len(self.lst)):
 		# 	print self.lst[i].getEventTime()
 	
 	def removeFirstEvent(self):
-		self.lst.pop(0)
+		self.head = self.head.next
 
 	def getFirstEvent(self):
-		return self.lst[0]
+		return self.head
 
 
 
@@ -80,18 +102,18 @@ class Buffer(object):
 
 	def removePacket(self):
 		if len(self.buff) != 0:
-			buff.pop()
+			self.buff.pop() # remove last element in list or first in queue
 		else:
 			print "buffer is empty"
 
 	def curBufferSize(self):
 		return len(self.buff)
 
-	def topPacket():
-		return self.buff[self.buff.size()-1]
+	def topPacket(self):
+		return self.buff[len(self.buff)-1]
 
 	def curPacketServiceTime(self):
-		return self.buff.topPacket().getServiceTime()
+		return self.topPacket().getServiceTime()
 
 
 
@@ -112,7 +134,7 @@ def processArrivalEvent(buff, gel):
 	global SERVER_BUSY_TIME
 	global PACKETS_DROPPED
 
-	TIME += gel.getFirstEvent().getEventTime()
+	TIME = gel.getFirstEvent().getEventTime()
 	
 	next_arrival_time = TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE)
 	new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
@@ -144,9 +166,8 @@ def processArrivalEvent(buff, gel):
 		# full buffer
 		else:
 			PACKETS_DROPPED += 1
-			# print "buffer is full. packet dropped."
 
-	MEAN_QUEUE_LENGTH = buff.curBufferSize() + 1
+	MEAN_QUEUE_LENGTH += buff.curBufferSize()
 	# SERVER_BUSY_TIME = 
 
 
@@ -158,9 +179,9 @@ def processDepartureEvent(buff, gel):
 	global MEAN_QUEUE_LENGTH
 	global SERVER_BUSY_TIME
 
-	TIME += gel.getFirstEvent().getEventTime()
+	TIME = gel.getFirstEvent().getEventTime()
 
-	MEAN_QUEUE_LENGTH = buff.curBufferSize() + 1
+	MEAN_QUEUE_LENGTH += buff.curBufferSize()
 	# SERVER_BUSY_TIME = 
 
 	LENGTH -= 1
@@ -189,30 +210,35 @@ def negativeExponenetiallyDistributedTime(rate):
 
 # SECTION: 3.1/3.2
 if __name__ == '__main__':
-
 	first_arrival_event = 1
-	initial_arrival_rate = 0.1
 
 	event = Event()
 	gel = GlobalEventList()
 
 	event.setEventType(first_arrival_event)
-	event.setEventTime(TIME + negativeExponenetiallyDistributedTime(initial_arrival_rate))
+	event.setEventTime(TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE))
 
 	# inserting our first event
 	gel.insertEvent(event)
 
 	buff = Buffer(MAXBUFFER)
 
-	for i in range(0, 5000):
+	for i in range(0, 100000):
 		# arrival
 		if gel.getFirstEvent().curEventType() == 1: # first event
 			processArrivalEvent(buff, gel)
-		
+			
 		# departure
 		elif gel.getFirstEvent().curEventType() == 2:
 			processDepartureEvent(buff, gel)
 
+		gel.removeFirstEvent()
 
-	print ("Mean Queue-Length = %f" % MEAN_QUEUE_LENGTH)
+	print MEAN_QUEUE_LENGTH
+	print TIME
+	print ("Mean Queue-Length = %f" % (MEAN_QUEUE_LENGTH/TIME))
+	print ("Number of Packets Dropped = %f" % PACKETS_DROPPED)
 
+
+
+# only packets that get through are counted in statistics
