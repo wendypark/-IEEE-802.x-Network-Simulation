@@ -6,7 +6,6 @@ MAXBUFFER = float('inf')	# max size of buffer
 LENGTH = 0 					# number of packets in queue
 TIME = 0					# current time
 SERVICE_RATE = 1			# u
-ARRIVAL_RATE = 0.25 		# lambda
 
 PACKETS_DROPPED = 0 		# number of packets dropped
 
@@ -211,67 +210,84 @@ def negativeExponenetiallyDistributedTime(rate):
 	u = random.random()
 	return ((-1/rate)*math.log(1-u))
 
+def iterations(exp, MAXBUFFER, ARRIVAL_RATE):
+	first_arrival_event = 1
 
+	event = Event()
+	gel = GlobalEventList()
+
+	event.setEventType(first_arrival_event)
+	event.setEventTime(TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE))
+
+	# inserting our first event
+	gel.insertEvent(event)
+
+	buff = Buffer(MAXBUFFER)
+
+	for i in range(0, 100000):
+		# arrival
+		if gel.firstEvent().curEventType() == 1: # first event
+			processArrivalEvent(buff, gel)
+			
+		# departure
+		elif gel.firstEvent().curEventType() == 2:
+			processDepartureEvent(buff, gel)
+
+		gel.removeFirstEvent()
+
+	print (MEAN_QUEUE_LENGTH)
+	print (TIME)
+	print ("Buffersize: %s" %str(MAXBUFFER))
+	print ("Experiment %d, Arrival Rate %.2f" % (exp, ARRIVAL_RATE))
+	print ("Mean Queue-Length = %f" % (MEAN_QUEUE_LENGTH/TIME))
+	print ("Server Utilization = %f" % (SERVER_BUSY_TIME/TIME))
+	print ("Number of Packets Dropped = %f \n \n" % PACKETS_DROPPED)
 
 # SECTION: 3.1/3.2
 if __name__ == '__main__':
 
 
 	ARR_RATE = [.1, .25, .4, .55, .65, .8, .9]
+	# .2, .4, .6, .8, .9]
+
 	for x in ARR_RATE:
+		global ARRIVAL_RATE
 		ARRIVAL_RATE = x
-
-		first_arrival_event = 1
-
-		event = Event()
-		gel = GlobalEventList()
-
-		event.setEventType(first_arrival_event)
-		event.setEventTime(TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE))
-
-		# inserting our first event
-		gel.insertEvent(event)
-
-		buff = Buffer(MAXBUFFER)
-
-		for i in range(0, 100000):
-			# arrival
-			if gel.firstEvent().curEventType() == 1: # first event
-				processArrivalEvent(buff, gel)
-				
-			# departure
-			elif gel.firstEvent().curEventType() == 2:
-				processDepartureEvent(buff, gel)
-
-			gel.removeFirstEvent()
-
-		print MEAN_QUEUE_LENGTH
-		print TIME
-		print ("Mean Queue-Length = %f" % (MEAN_QUEUE_LENGTH/TIME))
-		print ("Utilization = %f" % (SERVER_BUSY_TIME/TIME))
-		print ("Number of Packets Dropped = %f" % PACKETS_DROPPED)
+		iterations(exp=1, MAXBUFFER=float('inf'), ARRIVAL_RATE=x)
 
 		MAXBUFFER = float('inf')	# max size of buffer
 		LENGTH = 0 					# number of packets in queue
 		TIME = 0					# current time
 		SERVICE_RATE = 1			# u
-		ARRIVAL_RATE = 0.25 		# lambda
+		#ARRIVAL_RATE = 0.25 		# lambda
 
 		PACKETS_DROPPED = 0 		# number of packets dropped
 
 		MEAN_QUEUE_LENGTH = 0
 		SERVER_BUSY_TIME = 0
 
+	ARR_RATE_2 = [.2, .4, .6, .8, .9]
+	#MAXBUFFER = [1, 20, 50]
+	for x in ARR_RATE_2:
+		global ARRIVAL_RATE
+		ARRIVAL_RATE = x
+		MAXBUFFER = [1, 20, 50]
+		for y in MAXBUFFER:
+			global MAXBUFFER
+			MAXBUFFER = y 
+			iterations(exp=3, MAXBUFFER=MAXBUFFER, ARRIVAL_RATE=x)
 
-	
+		#MAXBUFFER = float('inf')	# max size of buffer
+			LENGTH = 0 					# number of packets in queue
+			TIME = 0					# current time
+			SERVICE_RATE = 1			# u
+
+
+			PACKETS_DROPPED = 0 		# number of packets dropped
+
+			MEAN_QUEUE_LENGTH = 0
+			SERVER_BUSY_TIME = 0
 
 
 
 
-
-
-
-
-
-	# only packets that get through are counted in statistics
-	# only packets that get through are counted in statistics
