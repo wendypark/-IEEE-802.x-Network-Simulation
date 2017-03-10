@@ -1,5 +1,7 @@
 import random
 import math
+#import scipy.stats 
+#import pareto_distribution
 
 #global variables 
 MAXBUFFER = float('inf')	# max size of buffer for exp 1
@@ -123,7 +125,9 @@ def processArrivalEvent(buff, gel):
 
 	MEAN_QUEUE_LENGTH += buff.curBufferSize() * time_difference
 	
-	next_arrival_time = TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE)
+	# SECTION: 3.8 EC
+	# Pareto Distribution for arrival rate 
+	next_arrival_time = TIME + pareto_distribution(ARRIVAL_RATE)
 	new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
 	
 	new_arrival_event = Event()
@@ -181,6 +185,7 @@ def processDepartureEvent(buff, gel):
 
 	#system not empty
 	if LENGTH > 0:
+
 		packet_transmit_time = buff.curPacketServiceTime()
 		buff.removePacket()
 
@@ -199,11 +204,12 @@ def negativeExponenetiallyDistributedTime(rate):
 	u = random.random()
 	return ((-1/rate)*math.log(1-u))
 
-# SECTION: 3.8 
-# EC: Pareto Distribution 
+# SECTION: 3.8 EC
+# Pareto Distribution 
 def pareto_distribution(rate):
-	return
-
+	u = random.random()
+	return (1/(1-u)**(1/rate))
+	
 
 def calculate_stats(exp, MAXBUFFER, ARRIVAL_RATE):
 	
@@ -215,7 +221,10 @@ def calculate_stats(exp, MAXBUFFER, ARRIVAL_RATE):
 	event = Event()
 	gel = GlobalEventList()
 	event.setEventType(first_arrival_event)
-	event.setEventTime(TIME + negativeExponenetiallyDistributedTime(ARRIVAL_RATE))
+
+	# SECTION: 3.8 EC
+	# Pareto Distribution for arrival rate 
+	event.setEventTime(TIME + pareto_distribution(ARRIVAL_RATE))
 
 	# inserting our first event
 	gel.insertEvent(event)
@@ -280,8 +289,7 @@ if __name__ == '__main__':
 
 			#declare global to avoid scoping issues 
 			global MAXBUFFER
-			MAXBUFFER = y
-			calculate_stats(exp=3, MAXBUFFER=MAXBUFFER, ARRIVAL_RATE=x)
+			calculate_stats(exp=3, MAXBUFFER=y, ARRIVAL_RATE=x)
 
 			#reset global vairables 
 			LENGTH = 0 					# number of packets in queue + server 
@@ -290,7 +298,3 @@ if __name__ == '__main__':
 			PACKETS_DROPPED = 0 		# number of packets dropped
 			MEAN_QUEUE_LENGTH = 0		# length of packet * time 
 			SERVER_BUSY_TIME = 0		# server busy time
-
-
-
-
