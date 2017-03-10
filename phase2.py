@@ -152,7 +152,7 @@ def channelSensingEvent(gel):
 			new_data_arrival_event = Event()
 			new_data_arrival_event.setEventType(1) # arriving event
 			new_data_arrival_event.setSecondaryEventType("sensing: data packet departing") # going to sending host 
-			new_data_arrival_event.setEventTime(TIME + SIFS) # when you get to this time in gel, it means ack needs to be sent
+			new_data_arrival_event.setEventTime(TIME + <((cur_packet.size * 8)/(11*10^6)) + DIFS>) # when you get to this time in gel, it means ack needs to be sent
 			new_data_arrival_event.setEventSendingHost(gel.firstEvent().e_sending_host) # receving host becomes sending host
 			new_data_arrival_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)
 
