@@ -7,7 +7,7 @@ SENSE = 0.01
 NUM_OF_FRAMES = 100000
 TIME = 0
 LINK_BUSY = false
-LAMBDA = 10 
+ARRIVAL_RATE = 0.01 # lambda 
 NUM_HOST = 10
 T_VALUE =  1
 
@@ -128,8 +128,44 @@ class Host(object):
 		self.backoff_cnt = 0
 
 
+def negativeExponenetiallyDistributedTime(rate):
+	u = random.random()
+	return ((-1/rate)*math.log(1-u))
+
+
 def processArrivalEvent(buff, gel):
-	if gel.firstEvent().e_secondary_type == "sensing: data packet arriving":		# from channelSensingEvent
+	# # time of the "width" of queue
+	# time_difference = gel.firstEvent().eventTime() - TIME
+	# TIME += time_difference
+
+	# MEAN_QUEUE_LENGTH += buff.curBufferSize() * time_difference
+	
+	# # SECTION: 3.8 EC
+	# # Pareto Distribution for arrival rate 
+	# next_arrival_time = TIME + pareto_distribution(ARRIVAL_RATE)
+	# new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE))
+	
+	# new_arrival_event = Event()
+	# new_arrival_event.setEventType(1)
+	# new_arrival_event.setEventTime(next_arrival_time)
+
+	# gel.insertEvent(new_arrival_event)
+
+	if gel.firstEvent().e_secondary_type == "starting arrival event"
+		time_difference = gel.firstEvent().eventTime() - TIME
+		TIME += time_difference
+
+		next_arrival_time = TIME + (ARRIVAL_RATE)									# arrival_rate = lambda
+
+		# modified from Phase 1
+		next_arrival_event = Event()
+		next_arrival_event.setEventType(1) 											# next arrival event, since we generate one arrival at a time
+		next_arrival_event.setSecondaryEventType("starting arrival event") 			# going to sending host 
+		next_arrival_event.setEventTime(next_arrival_time)	
+		next_arrival_event.setEventSendingHost(gel.firstEvent().e_sending_host) 	# not flipped bc we're just starting out
+		next_arrival_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)	
+
+	elif gel.firstEvent().e_secondary_type == "sensing: data packet arriving":		# from channelSensingEvent
 		LINK_BUSY = false
 		new_ack_depart_event = Event()
 		new_ack_depart_event.setEventType(2) 										# departing event
@@ -145,20 +181,22 @@ def processArrivalEvent(buff, gel):
 		TOTAL_SUCCESSFULL_BYTES += 64 						# ack size
 
 		# host has been notified that data has been successfully transmitted
-		hosts[gel.firstEvent().e_host].host_inf_queue.removePacket()	# remove successfully transmitted packet from host's queue
+		hosts[gel.firstEvent().e_host].host_inf_queue.removePacket()
 
-		# next departure event for next packet in host's queue
+		# new departure event for next packet in host's queue
 		next_packet = hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()
 		
 		next_event = Event()
-		new_ack_depart_event.setEventType(2) 											# departing from sending host
-		new_ack_depart_event.setSecondaryEventType("sensing: sensing packet departing")	
-		new_ack_depart_event.setEventTime(TIME + new_packet.service_t) 					# new packet's service time					
-		new_ack_depart_event.setEventSendingHost(gel.firstEvent().e_sending_host)		
-		new_ack_depart_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)	# send to same host again
+		next_event.setEventType(2) 												# departing from sending host
+		next_event.setSecondaryEventType("sensing: sensing packet departing")	
+		next_event.setEventTime(TIME + new_packet.service_t) 					# new packet's service time					
+		next_event.setEventSendingHost(gel.firstEvent().e_sending_host)		
+		next_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)		# send to same host again
 
-		gel.removeFirstEvent()
 
+def processDepartureEvent(buff, gel):
+	## channel sensing event
+	## random backoff generated within here bc we need to check channel before sending
 
 def channelSensingEvent(gel):
 	if not LINK_BUSY:
@@ -215,7 +253,7 @@ if __name__ == '__main__':
 		all_host[i] = Host()
 		new_event = Event()
 		new_event.setEventType(3) 			# channel-sensing event. continuing numbering protocol from Phase 1
-		new_event.setSecondaryEventType(0) 	# not important at initialization
+		new_event.setSecondaryEventType("starting arrival event") 	# not important at initialization
 		new_event.setEventTime(TIME) 		# initialized to 0
 		new_event.setEventSendingHost(i)	
 		dest_host = random.randint(0,NUM_HOST)
@@ -229,6 +267,8 @@ if __name__ == '__main__':
 		# if statement here because not sure if we need to incorporate other events from Phase 1
 
 
+		if gel.firstEvent().curEventType() == 2:
+			processDepartureEvent(gel):
 
 		if gel.firstEvent().curEventType() == 3:
 			channelSensingEvent(gel)
