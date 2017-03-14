@@ -144,16 +144,15 @@ def processArrivalEvent(gel):
     # arrival event of data frame
     if gel.firstEvent().e_secondary_type == "starting arrival event of data frame"
         time_difference = gel.firstEvent().eventTime() - TIME
-        TIME += time_difference
+        TIME += time_difference                                                                # time of current data frame arrival event 
         
-        next_arrival_time = TIME + negativeExponentiallyDistributedTime(ARRIVAL_RATE)  
+        next_arrival_time = TIME + negativeExponentiallyDistributedTime(ARRIVAL_RATE)          # time of next data frame event
         packet_size = negativeExponenetiallyDistributedSize()
         packet_service_time = (packet_size*8)/CHANNEL_CAP
-        new_packet = Packet(packet_service_time, negativeExponenetiallyDistributedSize())    
+        new_packet = Packet(packet_service_time, negativeExponenetiallyDistributedSize())      # generate new data frame packet
 
-        # modified from Phase 1
         next_arrival_event = Event()
-        next_arrival_event.setEventType(1)                                             # next arrival event, since we generate one arrival at a time
+        next_arrival_event.setEventType(1)                                                     # schedule next arrival event, same as Phase 1 Sec 3.3 instructions 
         next_arrival_event.setSecondaryEventType("starting arrival event of data frame")             # going to sending host 
         next_arrival_event.setEventTime(next_arrival_time)    
         next_arrival_event.setEventSendingHost(gel.firstEvent().e_sending_host)     # not flipped bc we're just starting out
@@ -332,3 +331,4 @@ if __name__ == '__main__':
     print ("Throughput = %.2f" % throughput)
     print ("Average Network Delay = %.2f" % ((trans_delay+queue_delay)/throughput))
   
+
