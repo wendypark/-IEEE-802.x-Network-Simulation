@@ -3,27 +3,28 @@ import math
 
 # GLOBAL VARIABLES 
 
-SIFS = 0.05                        # 
-DFS = 0.1
-SENSE = 0.01
-NUM_OF_FRAMES = 100000
-TIME = 0
-LINK_BUSY = false
-ARRIVAL_RATE = 0.01 # lambda 
-NUM_HOST = 10
-T_VALUE =  1
-TOTAL_SUCCESSFULL_BYTES = 0
+SIFS = 0.05                        # receiving host wait time 
+DFS = 0.1                          # sending host wait time 
+SENSE = 0.01                       # checks if channel is busy every .01 sec
+NUM_OF_FRAMES = 100000             # iterations
+TIME = 0                           # total time
+LINK_BUSY = false                  # checks if channel busy
+ARRIVAL_RATE = 0.01                # lambda = packet arrival rate 
+NUM_HOST = 10                      # number of hosts 
+T_VALUE =  1                       # arbitrary value for random backoff interval (0;n*T)
+TOTAL_SUCCESSFULL_BYTES = 0        # total bytes transmitted successfully 
+CHANNEL_CAP = 11*(10**6)           # channel transmission capacity is 11Mbps
 
 
 class Event(object):
     def __init__(self):
-        self.e_time = None
-        self.e_type = None
-        self.e_secondary_type = None
-        self.e_sending_host = None
-        self.e_receiving_host = None
-        self.e_size = None
-        self.next = None
+        self.e_time = None                # event time
+        self.e_type = None                # event type
+        self.e_secondary_type = None      # event secondary type: data or ack
+        self.e_sending_host = None        # event sending host
+        self.e_receiving_host = None      # event receiving host 
+        self.e_size = None                # event size
+        self.next = None                  # next event 
 
     def setEventType(self, ev_type):
         self.e_type = ev_type
@@ -77,11 +78,7 @@ class Buffer(object):
     def curPacketServiceTime(self):
         return self.topPacket().getServiceTime()
 
-
     
-    
-# SECTION: 3.1
-# GEL Object
 class GlobalEventList(object):
     def __init__(self, event_list=None):
         self.head = None
@@ -89,13 +86,13 @@ class GlobalEventList(object):
     def insertEvent(self, incoming_event):
         # empty list
         if self.head is None:
-            incoming_event.next = self.head     # points to nothing
-            self.head = incoming_event            # becomes head
+            incoming_event.next = self.head           # points to nothing
+            self.head = incoming_event                # becomes head
 
         # at least one element in there
         elif self.head.e_time >= incoming_event.e_time:
-            incoming_event.next = self.head     # points to previous head
-            self.head = incoming_event            # becomes head
+            incoming_event.next = self.head           # points to previous head
+            self.head = incoming_event                # becomes head
 
         #GLE full
         else:
@@ -117,18 +114,20 @@ class GlobalEventList(object):
 class Packet(object):
     def __init__(self, service_time, p_size):
         self.service_t = service_time
-        self.packet_size = 
+        self.packet_size = p_size 
     
     def getServiceTime(self):
         return self.service_t
-
+    
+    def getPacketSize(self):
+        return self.packet_size
 
 
 class Host(object):
     def __init__(self):
         self.host_inf_queue = Buffer(float('inf'))
         self.dropped_frames = 0
-        self.transmittion_time = 0
+        self.transmission_time = 0
         self.backoff_cnt = 0
 
 
@@ -142,12 +141,15 @@ def negativeExponenetiallyDistributedSize():
 
 def processArrivalEvent(gel):
 
+    # arrival event of data frame
     if gel.firstEvent().e_secondary_type == "starting arrival event of data frame"
         time_difference = gel.firstEvent().eventTime() - TIME
         TIME += time_difference
-        next_arrival_time = TIME + (ARRIVAL_RATE)                                    # arrival_rate = lambda
-        new_packet = Packet(negativeExponenetiallyDistributedTime(SERVICE_RATE), negativeExponenetiallyDistributedSize())    # not sure yet
-
+        
+        next_arrival_time = TIME + negativeExponentiallyDistributedTime(ARRIVAL_RATE)  
+        packet_size = negativeExponenetiallyDistributedSize()
+        packet_service_time = (packet_size*8)/CHANNEL_CAP
+        new_packet = Packet(packet_service_time, negativeExponenetiallyDistributedSize())    
 
         # modified from Phase 1
         next_arrival_event = Event()
@@ -206,6 +208,8 @@ def processArrivalEvent(gel):
 def processDepartureEvent(buff, gel):
     ## channel sensing event
     ## random backoff generated within here bc we need to check channel before sending
+    
+    # departure of data
     if gel.firstEvent().e_secondary_type == "sensing: ack packet arriving":
         if not LINK_BUSY & hosts[gel.firstEvent().e_host].host_inf_queue.curBufferSize():
             packet_to_be_transmitted = hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()     # need to create packet somewhere though
@@ -228,7 +232,11 @@ def processDepartureEvent(buff, gel):
             busy_channel_event.setEventSendingHost(gel.firstEvent().e_sending_host)
             busy_channel_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)
             gel.insertEvent(busy_channel_event) 
-    
+            
+    # departure of ack 
+    elif gel.firstEvent().e_secondary_type == "sensing: ack packet arriving":
+        
+        
 
 def channelSensingEvent(gel):
     if not LINK_BUSY:
@@ -265,9 +273,8 @@ def channelSensingEvent(gel):
         # FOLLOWING THE GIVEN ALGO, IT DOESN'T MAKE SENSE TO CREATE A RANDOM BACKOFF EVERY TIME CHANNEL IS BUSY...THOUGHTS?
         busy_channel_event = Event()
         busy_channel_event.setEventType(3)                                                    # try channelSensingEvent later
-        busy_channel_event.setSecondaryEventType("sensing: try sending, but channel busy") 
-        rand_backoff = int(round(random.randint(0,1) * T))                                    # randomly generated backoff
-        busy_channel_event.setEventTime(rand_backoff)
+        busy_channel_event.setSecondaryEventType("sensing: re-sense after sense interval") 
+        busy_channel_event.setEventTime(TIME + SENSE)
         busy_channel_event.setEventSendingHost(gel.firstEvent().e_sending_host)
         busy_channel_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)
         gel.insertEvent(busy_channel_event)
@@ -325,4 +332,3 @@ if __name__ == '__main__':
     print ("Throughput = %.2f" % throughput)
     print ("Average Network Delay = %.2f" % ((trans_delay+queue_delay)/throughput))
   
-
