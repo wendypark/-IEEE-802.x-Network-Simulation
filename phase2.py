@@ -10,10 +10,12 @@ NUM_OF_FRAMES = 100000             # iterations
 TIME = 0                           # total time
 LINK_BUSY = false                  # checks if channel busy
 ARRIVAL_RATE = 0.01                # lambda = packet arrival rate 
-NUM_HOST = 10                      # number of hosts 
+NUM_HOST = 10                      # number of all_hosts 
 T_VALUE =  1                       # arbitrary value for random backoff interval (0;n*T)
 TOTAL_SUCCESSFULL_BYTES = 0        # total bytes transmitted successfully 
 CHANNEL_CAP = 11*(10**6)           # channel transmission capacity is 11Mbps
+
+
 
 
 class Event(object):
@@ -129,6 +131,8 @@ class Host(object):
         self.dropped_frames = 0
         self.transmission_time = 0
         self.backoff_cnt = 0
+        self.trans_delay = 0
+        self.queue_delay = 0
 
 
 def negativeExponenetiallyDistributedTime(rate):
@@ -139,27 +143,26 @@ def negativeExponenetiallyDistributedSize():
     u = random.randint(0,1544)
     return u
 
-def processArrivalEvent(gel):
+def processArrivalEvent(gel, all_hosts):
 
     # arrival event of data frame
     if gel.firstEvent().e_secondary_type == "starting arrival event of data frame"
         time_difference = gel.firstEvent().eventTime() - TIME
-        TIME += time_difference                                                                # time of current data frame arrival event 
+        TIME += time_difference                                                         		# time of current data frame arrival event 
         
-        next_arrival_time = TIME + negativeExponentiallyDistributedTime(ARRIVAL_RATE)          # time of next data frame event
+        next_arrival_time = TIME + negativeExponentiallyDistributedTime(ARRIVAL_RATE)			# time of next data frame event
         packet_size = negativeExponenetiallyDistributedSize()
         packet_service_time = (packet_size*8)/CHANNEL_CAP
-        new_packet = Packet(packet_service_time, negativeExponenetiallyDistributedSize())      # generate new data frame packet
+        new_packet = Packet(packet_service_time, negativeExponenetiallyDistributedSize())		# generate new data frame packet
 
         next_arrival_event = Event()
-        next_arrival_event.setEventType(1)                                                     # schedule next arrival event, same as Phase 1 Sec 3.3 instructions 
-        next_arrival_event.setSecondaryEventType("starting arrival event of data frame")             # going to sending host 
-        next_arrival_event.setEventTime(next_arrival_time)    
-        next_arrival_event.setEventSendingHost(gel.firstEvent().e_sending_host)     # not flipped bc we're just starting out
+        next_arrival_event.setEventType(1)                                              		# schedule next arrival event, same as Phase 1 Sec 3.3 instructions 
+        next_arrival_event.setSecondaryEventType("starting arrival event of data frame")		
+        next_arrival_event.setEventTime(next_arrival_time)  
+        next_arrival_event.setEventSendingHost(gel.firstEvent().e_sending_host)     
         next_arrival_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)    
 
-        
-        hosts[gel.firstEvent().e_host].host_inf_queue.insertPacket(new_packet)
+        all_hosts[gel.firstEvent().e_host].host_inf_queue.insertPacket(new_packet)
         # LENGTH??
         
         # new departure
@@ -169,59 +172,67 @@ def processArrivalEvent(gel):
         new_data_departure_event.setEventTime(TIME + new_packet.getServiceTime())                                
         new_data_departure_event.setEventSendingHost(gel.firstEvent().e_sending_host)
         new_data_departure_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)
-        gel.insertEvent(new_data_departure_event)
-        
-        
-        
-    elif gel.firstEvent().e_secondary_type == "sensing: data packet arriving":        # from channelSensingEvent
+        gel.insertEvent(new_data_departure_event
+)        
+    elif gel.firstEvent().e_secondary_type == "sensing: data packet arriving":        
         LINK_BUSY = false
+
+        packet_size_of_cur_event = all_hosts[gel.firstEvent().e_host].host_inf_queue.topPacket().getPacketSize()
+        all_hosts[gel.firstEvent().e_host].trans_delay += (packet_size_of_cur_event*8)/(CHANNEL_CAP)
+
         new_ack_depart_event = Event()
         new_ack_depart_event.setEventType(2)                                           # departing event
-        new_ack_depart_event.setSecondaryEventType("sensing: ack packet departing")    # going to sending host 
+        new_ack_depart_event.setSecondaryEventType("sensing: ack packet departing")    
         new_ack_depart_event.setEventTime(TIME + SIFS)                                 # when you get to this time in gel, it means ack needs to be sent
         new_ack_depart_event.setEventSendingHost(gel.firstEvent().e_sending_host)
         new_ack_depart_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)
         gel.insertEvent(new_ack_depart_event)
 
+
     elif gel.firstEvent().e_secondary_type === "sensing: ack packet arriving"
         LINK_BUSY = false
 
-        TOTAL_SUCCESSFULL_BYTES += gel.firstEvent().e_size     # original size of packet
+        TOTAL_SUCCESSFULL_BYTES += gel.firstEvent().e_size   # original size of packet
         TOTAL_SUCCESSFULL_BYTES += 64                        # ack size
 
         # host has been notified that data has been successfully transmitted
-        hosts[gel.firstEvent().e_host].host_inf_queue.removePacket()
+        all_hosts[gel.firstEvent().e_host].host_inf_queue.removePacket()
 
         # new departure event for next packet in host's queue
-        next_packet = hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()
+        next_packet = all_hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()
         
         next_event = Event()
-        next_event.setEventType(2)                                                 # departing from sending host
+        next_event.setEventType(2)                                                 
         next_event.setSecondaryEventType("sensing: data packet departing")    
         next_event.setEventTime(TIME + new_packet.service_t)                     # new packet's service time                    
         next_event.setEventSendingHost(gel.firstEvent().e_sending_host)        
-        next_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)        # send to same host again
+        next_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)        
         gel.insertEvent(next_event)
         
 
-def processDepartureEvent(buff, gel):
+def processDepartureEvent(gel, all_hosts):
     ## channel sensing event
     ## random backoff generated within here bc we need to check channel before sending
     
     # departure of data
-    if gel.firstEvent().e_secondary_type == "sensing: ack packet arriving":
-        if not LINK_BUSY & hosts[gel.firstEvent().e_host].host_inf_queue.curBufferSize():
-            packet_to_be_transmitted = hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()     # need to create packet somewhere though
+    if gel.firstEvent().e_secondary_type == "data packet departing":
+        packet_time_of_cur_event = all_hosts[gel.firstEvent().e_host].host_inf_queue.topPacket().getPacketTime()
+        all_hosts[gel.firstEvent().e_host].queue_delay += packet_time_of_cur_event
+
+        if not LINK_BUSY & all_hosts[gel.firstEvent().e_host].host_inf_queue.curBufferSize():
+            packet_to_be_transmitted = all_hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()     # need to create packet somewhere though
 
             new_data_arrival_event = Event()
-            new_data_arrival_event.setEventType(1)                                                     # arrival event
-            new_data_arrival_event.setSecondaryEventType("sensing: data packet arriving")             # going to sending host 
-            new_data_arrival_event.setEventTime(TIME + DIFS>)    # TIME FORMULA? need to use packet size
-            new_data_arrival_event.setEventSendingHost(gel.firstEvent().e_receiving_host)             # receiving host becomes sending host
-            new_data_arrival_event.setEventReceivingHost(gel.firstEvent().e_sending_host)            # need to use this to make departure destination later
+            new_data_arrival_event.setEventType(1)                                                     
+            new_data_arrival_event.setSecondaryEventType("sensing: data packet arriving")             
+            new_data_arrival_event.setEventTime(TIME + DIFS + (packet_to_be_transmitted.getPacketSize()*8)/(CHANNEL_CAP))	# THIS IS GOOD!
+            new_data_arrival_event.setEventSendingHost(gel.firstEvent().e_receiving_host)             
+            new_data_arrival_event.setEventReceivingHost(gel.firstEvent().e_sending_host)            
             gel.insertEvent(new_data_arrival_event)
+
+            LINK_BUSY = true
             
-        # channel busy
+        # channel busy. generate backoff
         else:
             busy_channel_event = Event()
             busy_channel_event.setEventType(3)                                                    # try channelSensingEvent later
@@ -233,28 +244,45 @@ def processDepartureEvent(buff, gel):
             gel.insertEvent(busy_channel_event) 
             
     # departure of ack 
-    elif gel.firstEvent().e_secondary_type == "sensing: ack packet arriving":
-        
+    elif gel.firstEvent().e_secondary_type == "sensing: ack packet departing":
+    	if not LINK_BUSY:
+    		new_ack_arrival_event = Event()
+        	new_ack_arrival_event.setEventType(1)
+        	new_ack_arrival_event.setSecondaryEventType("sensing: ack packet arriving")
+        	new_ack_arrival_event.setEventTime(TIME + ((64*8)/(11000000)))					#THIS IS GOOD!
+        	new_ack_arrival_event.setEventSendingHost(gel.firstEvent().e_receiving_host)             
+            new_ack_arrival_event.setEventReceivingHost(gel.firstEvent().e_sending_host)
+            gel.insertEvent(new_ack_arrival_event)
+
+        else:
+            busy_channel_event = Event()
+            busy_channel_event.setEventType(3)                                                    # try channelSensingEvent later
+            busy_channel_event.setSecondaryEventType("sensing: try sending, but channel busy") 
+            rand_backoff = int(round(random.randint(0,1) * T))                                    # randomly generated backoff
+            busy_channel_event.setEventTime(rand_backoff)
+            busy_channel_event.setEventSendingHost(gel.firstEvent().e_receiving_host)
+            busy_channel_event.setEventReceivingHost(gel.firstEvent().e_sending_host)
+            gel.insertEvent(busy_channel_event) 
         
 
-def channelSensingEvent(gel):
+def channelSensingEvent(gel, all_hosts):
     if not LINK_BUSY:
-        hosts[gel.firstEvent().e_host].backoff_cnt -= 1    # decrement current host's backoff count
-                                                        # only decrement here because backoff needs to remain frozen otherwise
+        all_hosts[gel.firstEvent().e_host].backoff_cnt -= 1		# decrement current host's backoff count
+                                                        	# only decrement here because backoff needs to remain frozen otherwise
         
         # if current host backoff is completed
-        if hosts[gel.firstEvent().e_host].backoff_cnt == 0:
+        if all_hosts[gel.firstEvent().e_host].backoff_cnt == 0:
             # CORRECT WAY TO UPDATE TIME?
             time_difference = gel.firstEvent().eventTime() - TIME 
             TIME += time_difference
 
-            packet_to_be_transmitted = hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()     # need to create packet somewhere though
+            packet_to_be_transmitted = all_hosts[gel.firstEvent().e_host].host_inf_queue.topPacket()    
 
             new_data_arrival_event = Event()
-            new_data_arrival_event.setEventType(1)                                                     # arrival event
-            new_data_arrival_event.setSecondaryEventType("sensing: data packet arriving")             # going to sending host 
-            new_data_arrival_event.setEventTime(TIME + DIFS>)    # TIME FORMULA?
-            new_data_arrival_event.setEventSendingHost(gel.firstEvent().e_receiving_host)             # receiving host becomes sending host
+            new_data_arrival_event.setEventType(1)                                                     
+            new_data_arrival_event.setSecondaryEventType("sensing: data packet arriving")             
+            new_data_arrival_event.setEventTime(TIME + DIFS)    # TIME FORMULA?
+            new_data_arrival_event.setEventSendingHost(gel.firstEvent().e_receiving_host)            # receiving host becomes sending host
             new_data_arrival_event.setEventReceivingHost(gel.firstEvent().e_sending_host)            # need to use this to make departure destination later
             gel.insertEvent(new_data_arrival_event)
 
@@ -262,14 +290,13 @@ def channelSensingEvent(gel):
             SIFS_timer_event = Event()
             SIFS_timer_event.setEventType(-1)
             SIFS_timer_event.setSecondaryEventType("sensing: SIFS timeout")
-            SIFS_timer_event.setEventTime(TIME + SIFS + <something????>)    # TIME FORMULA?
+            SIFS_timer_event.setEventTime(TIME + SIFS)    # TIME FORMULA?
             SIFS_timer_event.setEventSendingHost(gel.firstEvent().e_sending_host)                    # waiting for the sending host
             SIFS_timer_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)
             gel.insertEvent(SIFS_timer_event)
     
     # link is busy
     else:
-        # FOLLOWING THE GIVEN ALGO, IT DOESN'T MAKE SENSE TO CREATE A RANDOM BACKOFF EVERY TIME CHANNEL IS BUSY...THOUGHTS?
         busy_channel_event = Event()
         busy_channel_event.setEventType(3)                                                    # try channelSensingEvent later
         busy_channel_event.setSecondaryEventType("sensing: re-sense after sense interval") 
@@ -279,13 +306,20 @@ def channelSensingEvent(gel):
         gel.insertEvent(busy_channel_event)
 
 
-def variousTimers(gel):
+def variousTimers(gel, all_hosts):
+	# send again
+	new_data_departure_event = Event()
+    new_data_departure_event.setEventType(2)                                       
+    new_data_departure_event.setSecondaryEventType("sensing: data packet departing") 
+    new_data_departure_event.setEventTime(TIME + new_packet.getServiceTime())                                
+    new_data_departure_event.setEventSendingHost(gel.firstEvent().e_sending_host)
+    new_data_departure_event.setEventReceivingHost(gel.firstEvent().e_receiving_host)
+    gel.insertEvent(new_data_departure_event)
+        
 
 
 if __name__ == '__main__':
-
     gel = GlobalEventList()     
-    all_hosts = []
     
     # event_type
     # 1  = arrival
@@ -294,8 +328,11 @@ if __name__ == '__main__':
     # -1 = timeout 
     
     #each host generates an arrival, sensor, then departure event 
+
+    all_hosts = []
+
     for i in range (1, NUM_HOST+1): 
-        all_host[i] = Host()
+        all_hosts[i] = Host()
         new_event = Event()
         new_event.setEventType(1)                                                   # arrival event           
         new_event.setSecondaryEventType("starting arrival event of data frame")     # arrival event of data_frame --> sensor, departure event happens in processArrivalEvent fct
@@ -313,21 +350,26 @@ if __name__ == '__main__':
     for i in range(0, NUM_OF_FRAMES):
         
         if gel.firstEvent().curEventType() == 1:                                    # arrival event 
-            processArrivalEvent(gel)
+            processArrivalEvent(gel,all_hosts)
 
         if gel.firstEvent().curEventType() == 2:                                    # departure event
-            processDepartureEvent(gel)
+            processDepartureEvent(gel,all_hosts)
 
         if gel.firstEvent().curEventType() == 3:                                    # sensor event
-            channelSensingEvent(gel)
+            channelSensingEvent(gel,all_hosts)
 
         if gel.firstEvent().curEventType() == -1:                                   # timeout SIFS
-            variousTimers(gel)
+            variousTimers(gel,all_hosts)
 
         gel.removeFirstEvent()                                                      # remove first event of GEL 
     
+
+
     throughput = TOTAL_SUCCESSFULL_BYTES/TIME
     
+    for 
+
+
     print ("Throughput = %.2f" % throughput)
     print ("Average Network Delay = %.2f" % ((trans_delay+queue_delay)/throughput))
   
