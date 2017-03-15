@@ -188,7 +188,6 @@ def processArrivalEvent(gel, all_hosts):
         gel.insertEvent(new_data_departure_event)
 
     elif gel.firstEvent().e_secondary_type== 'sensing: data packet arriving':
-        print "data packet arrived"
         LINK_BUSY = False
 
         packet_size_of_cur_event = all_hosts[gel.firstEvent().e_sending_host].host_inf_queue.topPacket().getPacketSize()
@@ -275,7 +274,6 @@ def processDepartureEvent(gel, all_hosts):
     # departure of ack
 
         if not LINK_BUSY:
-            print "arrived"
             new_ack_arrival_event = Event()
             new_ack_arrival_event.setEventType(1)
             new_ack_arrival_event.setSecondaryEventType('sensing: ack packet arriving')
@@ -391,13 +389,13 @@ if __name__ == '__main__':
         if gel.firstEvent().curEventType() == 1:  # arrival event
             processArrivalEvent(gel, all_hosts)
 
-        if gel.firstEvent().curEventType() == 2:  # departure event
+        elif gel.firstEvent().curEventType() == 2:  # departure event
             processDepartureEvent(gel, all_hosts)
 
-        if gel.firstEvent().curEventType() == 3:  # sensor event
+        elif gel.firstEvent().curEventType() == 3:  # sensor event
             channelSensingEvent(gel, all_hosts)
 
-        if gel.firstEvent().curEventType() == -1:  # timeout SIFS
+        elif gel.firstEvent().curEventType() == -1:  # timeout SIFS
             variousTimers(gel, all_hosts)
 
         gel.removeFirstEvent()  # remove first event of GEL
