@@ -205,6 +205,10 @@ def processArrivalEvent(gel, all_hosts):
         print "SUCCESSFULL"
         LINK_BUSY = False
 
+
+        all_hosts[gel.firstEvent().e_sending_host].trans_delay += (64 * 8) / CHANNEL_CAP
+
+
         TOTAL_SUCCESSFULL_BYTES += gel.firstEvent().e_size  # original size of packet
         TOTAL_SUCCESSFULL_BYTES += 64  # ack size
 
@@ -272,8 +276,8 @@ def processDepartureEvent(gel, all_hosts):
     elif gel.firstEvent().e_secondary_type == 'sensing: ack packet departing':
 
     # departure of ack
-
         if not LINK_BUSY:
+            print "he"
             new_ack_arrival_event = Event()
             new_ack_arrival_event.setEventType(1)
             new_ack_arrival_event.setSecondaryEventType('sensing: ack packet arriving')
@@ -304,7 +308,9 @@ def channelSensingEvent(gel, all_hosts):
     # if current host backoff is completed
     if all_hosts[gel.firstEvent().e_sending_host].backoff_cnt == 0:
         # CORRECT WAY TO UPDATE TIME?
-        time_difference = gel.firstEvent().eventTime() - TIME
+        # time_difference = gel.firstEvent().eventTime() - TIME
+        # TIME += time_difference
+
         TIME = gel.firstEvent().eventTime()
 
         packet_to_be_transmitted = all_hosts[gel.firstEvent().e_sending_host].host_inf_queue.topPacket()
@@ -383,7 +389,6 @@ if __name__ == '__main__':
 
     for i in range(0, NUM_OF_FRAMES):
 
-        time_difference = gel.firstEvent().eventTime() - TIME
         TIME = gel.firstEvent().eventTime()
 
         if gel.firstEvent().curEventType() == 1:  # arrival event
@@ -410,4 +415,4 @@ if __name__ == '__main__':
         queue_delay += all_hosts[i].queue_delay
 
     print 'Throughput = %.2f' % throughput
-    print 'Average Network Delay = %.2f' % ((trans_delay + queue_delay)/ throughput)
+    print 'Average Network Delay = %.2f' % ((trans_delay + queue_delay) / throughput)
