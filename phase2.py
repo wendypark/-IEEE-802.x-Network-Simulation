@@ -3,17 +3,17 @@ import math
 
 # GLOBAL VARIABLES
 
-SIFS = 0.05  # receiving host wait time
-DIFS = 0.1  # sending host wait time
-SENSE = 0.01  # checks if channel is busy every .01 sec
-NUM_OF_FRAMES = 100000  # iterations
-TIME = 0  # total time
-LINK_BUSY = False  # checks if channel busy
-ARRIVAL_RATE = 0.01  # lambda = packet arrival rate
-NUM_HOST = 10  # number of all_hosts
-T = 1  # arbitrary value for random backoff interval (0;n*T)
-TOTAL_SUCCESSFULL_BYTES = 0  # total bytes transmitted successfully
-CHANNEL_CAP = 11 * 10 ** 6  # channel transmission capacity is 11Mbps
+SIFS = 0.05                     # receiving host wait time
+DIFS = 0.1                      # sending host wait time
+SENSE = 0.01                    # checks if channel is busy every .01 sec
+NUM_OF_FRAMES = 100000          # iterations
+TIME = 0                        # total time
+LINK_BUSY = False               # checks if channel busy
+ARRIVAL_RATE = 0.01             # lambda = packet arrival rate
+NUM_HOST = 10                   # number of all_hosts
+T = 1                           # arbitrary value for random backoff interval (0;n*T)
+TOTAL_SUCCESSFULL_BYTES = 0     # total bytes transmitted successfully
+CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
 
 
 class Event(object):
@@ -205,8 +205,12 @@ def processArrivalEvent(gel, all_hosts):
         print "SUCCESSFULL"
         LINK_BUSY = False
 
-        TOTAL_SUCCESSFULL_BYTES += gel.firstEvent().e_size  # original size of packet
+        #TOTAL_SUCCESSFULL_BYTES += gel.firstEvent().e_size  # original size of packet
+        
+        TOTAL_SUCCESSFULL_BYTES += all_hosts[gel.firstEvent().e_sending_host].host_inf_queue.packet_size()
+
         TOTAL_SUCCESSFULL_BYTES += 64  # ack size
+        print 'total bytes round 1 %f' %TOTAL_SUCCESSFULL_BYTES
 
         # host has been notified that data has been successfully transmitted
         all_hosts[gel.firstEvent().e_sending_host].host_inf_queue.removePacket()
@@ -401,7 +405,8 @@ if __name__ == '__main__':
         gel.removeFirstEvent()  # remove first event of GEL
 
     throughput = TOTAL_SUCCESSFULL_BYTES / TIME
-    print TIME
+    print 'time: %f' %TIME
+    print 'total bytes %f' %TOTAL_SUCCESSFULL_BYTES
 
     trans_delay = 0
     queue_delay = 0
