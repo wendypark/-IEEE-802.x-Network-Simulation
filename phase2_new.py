@@ -99,6 +99,10 @@ def negativeExponenetiallyDistributedSize():
 
 
 def decrementBackoffs(BACKOFF_HOSTS):
+	global TIME
+
+	# sensing every 0.01
+	TIME += 0.01
 	# need to decrement all hosts backoff counter since link is free
 	for i in BACKOFF_HOSTS:
 		HOSTS[i].backoff_counter -= 1
@@ -181,6 +185,7 @@ if __name__ == '__main__':
 # 			generate next packet transmission
 # 	- else:
 # 		backoff
+#	
 
 
 # processResponseEvent
