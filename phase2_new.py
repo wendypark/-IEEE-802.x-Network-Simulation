@@ -5,15 +5,21 @@ TIME = 0		# Global Time
 DIFS = 0.1		# Sending host wait time
 SIFS = 0.05		# Receiving host wait time
 BUSY = False	# Link status
-
+HOSTS = []
+BACKOFF_HOSTS = []
+CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
+NUM_HOST = 10
 
 
 class Event(object):
 
-	def __init__(self,event_type,sending_host,receiving_host):
-		self.type = type_event
+	def __init__(self,event_type,sending_host,receiving_host,time):
+		self.type = event_type
 		self.sending_host = sending_host
 		self.receiving_host = receiving_host
+		self.time = time
+
+	# def setIsAck(self,)
 
 
 class GlobalEventList(object):
@@ -52,22 +58,17 @@ class Buffer(object):
 
     # NOTE: using list as a queue
     # top of the queue is the last element in list
-
     def __init__(self, max_buffer):
         self.max_b = max_buffer
         self.buff = []
 
     def insertPacket(self, incoming_packet):
-
         # insert at beginning of list or end of queue
-
         self.buff.insert(0, incoming_packet)
 
     def removePacket(self):
         if len(self.buff) != 0:
-
             # remove last element in list or first in queue
-
             self.buff.pop()
         else:
             print 'Buffer is empty.'
@@ -84,13 +85,27 @@ class Buffer(object):
 
 class Host(object):
 
-    def __init__(self,idx,):
+    def __init__(self,idx):
         self.host_queue = Buffer(float('inf'))
         self.idx = idx
         self.transmission_time = 0
         self.backoff_counter = 0
         self.trans_delay = 0
         self.queue_delay = 0
+
+
+class Packet(object):
+
+    def __init__(self, service_time, p_size, ack=False):
+        self.service_t = service_time
+        self.packet_size = p_size
+        self.ack = ack
+
+    def getServiceTime(self):
+        return self.service_t
+
+    def getPacketSize(self):
+        return self.packet_size
 
 
 def negativeExponenetiallyDistributedSize():
@@ -108,32 +123,69 @@ def decrementBackoffs(BACKOFF_HOSTS):
 		HOSTS[i].backoff_counter -= 1
 
 
-def processArrivalEvent(hosts, gel, cur_ev):
+def successful_send_receive(gel,cur_event):
+	# remove packet that was sent successfully
+	HOSTS[cur_event.sending_host].host_queue.removePacket()
+
+	# make new ready event for next packet in queue
+	queue_size = HOSTS[cur_event.sending_host].host_queue.curBufferSize()
+	if queue_size != 0:
+		ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, DIFS + TIME)	# ready, sending host idx, destination host index
+		gel.insertEvent(ready_event)
+	else:
+		print "no more packets in host's queue"
+
+
+def processArrivalEvent(gel, cur_ev):
 	global TIME
 	global BACKOFF_HOSTS
 
-	# Generate next arrival event similar to Phase 1
-	next_arrival_event = Event('1', cur_ev.sending_host, cur_event.receiving_host)
+	# generate next arrival event similar to Phase 1
+	# create service time of next arrival event
+
+	ran_time = negativeExponenetiallyDistributedTime(ARRIVAL_RATE) + TIME
+	next_arrival_event = Event(1, cur_ev.sending_host, cur_event.receiving_host, ran_time)
 	gel.insertEvent(first_arrival_event)
 
-	# Generate new packet
+	# generate new packet
 	new_packet = Packet(cur_event.sending_host, cur_ev.receiving_host, negativeExponenetiallyDistributedSize())
 	HOSTS[cur_event.sending_host].host_queue.insertPacket(new_packet)
 
 	# check if recently inserted packet is only packet in host's queue
 	queue_size = HOSTS[cur_event.sending_host].host_queue.curBufferSize()
 	if queue_size == 1:
-		if not BUSY:
-			# transmit if not busy
-			transmission_event = Event('1', cur_event.sending_host, cur_event.receiving_host, DIFS + TIME)	# transmit, sending host idx, destination host index
-		else:
-			# backoff
-			if cur_event.sending_host not in BACKOFF_HOSTS
-				rand_backoff = int(round(random.randint(0, 1) * T))
-				HOSTS[cur_event.sending_host].backoff_counter = rand_backoff
-				BACKOFF_HOSTS.append(cur_event.sending_host)
-			else:
-				# do nothing since host is still waiting
+		ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, DIFS + TIME)	# ready, sending host idx, destination host index
+		gel.insertEvent(ready_event)
+
+
+def processReadyEvent(gel,cur_event):
+	global TIME
+
+	if not BUSY:
+		# create departure event
+		BUSY = True
+		packet_size = HOSTS[cur_event.sending_host].host_queue.topPacket().getPacketSize()
+		new_departure_event = Event(2, cur_event.sending_host, cur_event.receiving_host, TIME + ((packet_size*8)/CHANNEL_CAP))
+		gel.insertEvent(new_departure_event)
+
+		# check whether packet we just sent was an acknowledgement packet
+		# cur_packet = HOSTS[cur_event.sending_host].host_queue.topPacket()
+		# if cur_packet.ack == False:
+		# 	cur_packet.ack_needed = True
+		# else:
+		successful_send_receive(gel, cur_event)
+
+		# successfully send
+		TOTAL_SUCCESSFULL_BYTES += packet_size
+		HOSTS[cur_event.sending_host].trans_delay += packet_size
+		HOSTS[cur_event.sending_host].queue_delay += HOSTS[cur_event.sending_host].host_queue.topPacket().getServiceTime()
+
+	else:
+		if cur_event.sending_host not in BACKOFF_HOSTS:
+			rand_backoff = int(round(random.randint(0, 1) * T))
+			HOSTS[cur_event.sending_host].backoff_counter = rand_backoff
+			BACKOFF_HOSTS.append(cur_event.sending_host)
+
 
 
 if __name__ == '__main__':
@@ -142,7 +194,7 @@ if __name__ == '__main__':
 
 	# create hosts
 	for i in range(0, NUM_HOST):
-        HOSTS.append(Host(i))
+		HOSTS.append(Host(i))
 
         dest_host = random.randint(0, NUM_HOST)  
         while i == dest_host:
@@ -152,17 +204,21 @@ if __name__ == '__main__':
         gel.insertEvent(first_arrival_event)
 
     # start
-    for i in range(0, 100000):
-    	ev = gel.firstEvent()
+	for i in range(0, 100000):
+		ev = gel.firstEvent()
+		print ev
 
-    	# check link every iteration
-    	if BUSY == False:
-    		decrementBackoffs(BACKOFF_HOSTS)
+		# check link every iteration
+		if BUSY == False:
+			decrementBackoffs(BACKOFF_HOSTS)
 
-    	if ev.type == '1':
-    		processArrivalEvent(gel, ev)
+		if ev.type == 1:
+			processArrivalEvent(gel, ev)
 
-    	gel.removeFirstEvent()
+		elif ev.type == 2:
+			processReadyEvent(gel, ev)
+
+		gel.removeFirstEvent()
 
 
 
