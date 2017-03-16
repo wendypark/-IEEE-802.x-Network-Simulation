@@ -1,5 +1,6 @@
 import math
 import random
+from Queue import PriorityQueue
 
 TIME = 0		# Global Time
 DIFS = 0.1		# Sending host wait time
@@ -40,16 +41,10 @@ class GlobalEventList(object):
 			incoming_event.next = self.head 	# points to nothing
 			self.head = incoming_event			# becomes head
 
-		# at least one element in there
-		elif self.head.time >= incoming_event.time:
-			# print "2"
-			incoming_event.next = self.head 	# points to previous head
-			self.head = incoming_event			# becomes head
-
 		#GLE full
 		else:
 			cur_event = self.head
-			while cur_event.next is not None and cur_event.next.time < incoming_event.time:
+			while cur_event.next is not None:
 				cur_event = cur_event.next
 
 			incoming_event.next = cur_event.next
@@ -203,7 +198,7 @@ def processReadyEvent(gel, cur_event):
 def processDestinationArrivalEvent(gel, cur_event):
 	global BUSY
 
-
+	print "dest"
 
 	# arrive at destination. now make ack packet and set ack ready for return
 	if cur_event.ack == False:
@@ -286,7 +281,7 @@ if __name__ == '__main__':
 
 
 	throughput = TOTAL_SUCCESSFULL_BYTES / TIME
-	print TIME
+	print "TIME %f " %TIME
 
 	trans_delay = 0
 	queue_delay = 0
