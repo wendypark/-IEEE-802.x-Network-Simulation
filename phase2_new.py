@@ -10,19 +10,20 @@ BACKOFF_HOSTS = []
 CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
 NUM_HOST = 10
 T = 5
+ARRIVAL_RATE = 0.01
 
 
 class Event(object):
 
-	def __init__(self,event_type,sending_host,receiving_host,time):
+	def __init__(self,event_type,sending_host,receiving_host,t_time):
 		self.type = event_type
 		self.sending_host = sending_host
 		self.receiving_host = receiving_host
-		self.time = time
+		self.time = t_time
 		self.ack = False
 
 	def setAckEvent(self,is_ack):
-    	self.ack = is_ack
+		self.ack = is_ack
 
 	# def setIsAck(self,)
 
@@ -34,22 +35,25 @@ class GlobalEventList(object):
 	def insertEvent(self, incoming_event):
 		# empty list
 		if self.head is None:
+			# print "1"
 			incoming_event.next = self.head 	# points to nothing
 			self.head = incoming_event			# becomes head
 
 		# at least one element in there
-		elif self.head.e_time >= incoming_event.e_time:
+		elif self.head.time >= incoming_event.time:
+			# print "2"
 			incoming_event.next = self.head 	# points to previous head
 			self.head = incoming_event			# becomes head
 
 		#GLE full
 		else:
 			cur_event = self.head
-			while cur_event.next is not None and cur_event.next.e_time < incoming_event.e_time:
+			while cur_event.next is not None and cur_event.next.time < incoming_event.time:
 				cur_event = cur_event.next
 
 			incoming_event.next = cur_event.next
 			cur_event.next = incoming_event
+			# print "3"
 	
 	#packet ready for transmission 
 	def removeFirstEvent(self):
@@ -61,42 +65,43 @@ class GlobalEventList(object):
 
 class Buffer(object):
 
-    # NOTE: using list as a queue
-    # top of the queue is the last element in list
-    def __init__(self, max_buffer):
-        self.max_b = max_buffer
-        self.buff = []
+	# NOTE: using list as a queue
+	# top of the queue is the last element in list
+	def __init__(self, max_buffer):
+		self.max_b = max_buffer
+		self.buff = []
 
-    def insertPacket(self, incoming_packet):
-        # insert at beginning of list or end of queue
-        self.buff.insert(0, incoming_packet)
+	def insertPacket(self, incoming_packet):
+		# insert at beginning of list or end of queue
+		self.buff.insert(0, incoming_packet)
 
-    def removePacket(self):
-        if len(self.buff) != 0:
-            # remove last element in list or first in queue
-            self.buff.pop()
-        else:
-            print 'Buffer is empty.'
+	def removePacket(self):
+		if len(self.buff) != 0:
+			# remove last element in list or first in queue
+			self.buff.pop()
+		else:
+			print 'Buffer is empty.'
 
-    def curBufferSize(self):
-        return len(self.buff)
+	def curBufferSize(self):
+		return len(self.buff)
 
-    def topPacket(self):
-        return self.buff[len(self.buff) - 1]
+	def topPacket(self):
+		return self.buff[len(self.buff) - 1]
 
-    def curPacketServiceTime(self):
-        return self.topPacket().getServiceTime()
+	def curPacketServiceTime(self):
+		return self.topPacket().getServiceTime()
 
 
 class Host(object):
 
-    def __init__(self,idx):
-        self.host_queue = Buffer(float('inf'))
-        self.idx = idx
-        self.transmission_time = 0
-        self.backoff_counter = 0
-        self.trans_delay = 0
-        self.queue_delay = 0
+	def __init__(self,idx):
+		self.host_queue = Buffer(float('inf'))
+		self.idx = idx
+		self.transmission_time = 0
+		self.backoff_counter = 0
+		self.trans_delay = 0
+		self.queue_delay = 0
+		self.ack_needed = False
 
 
 class Packet(object):
@@ -104,8 +109,8 @@ class Packet(object):
     def __init__(self, sending_host, receiving_host, p_size):
 		self.sending_host = sending_host
 		self.receiving_host = receiving_host
-        self.packet_size = p_size
-        self.ack = False
+		self.packet_size = p_size
+		self.ack = False
 
     def setAckPacket(self,is_ack):
     	self.ack = is_ack
@@ -118,18 +123,13 @@ class Packet(object):
 
 
 def negativeExponenetiallyDistributedSize():
-    u = random.randint(0, 1544)
-    return u
+	u = random.randint(0, 1544)
+	return u
 
 
-def decrementBackoffs(BACKOFF_HOSTS):
-	global TIME
-
-	# sensing every 0.01
-	TIME += 0.01
-	# need to decrement all hosts backoff counter since link is free
-	for i in BACKOFF_HOSTS:
-		HOSTS[i].backoff_counter -= 1
+def negativeExponenetiallyDistributedTime(rate):
+	u = random.random()
+	return -1 / rate * math.log(1 - u)
 
 
 def successful_send_receive(gel,cur_event):
@@ -145,7 +145,7 @@ def successful_send_receive(gel,cur_event):
 		print "no more packets in host's queue"
 
 
-def processArrivalEvent(gel, cur_ev):
+def processArrivalEvent(gel, cur_event):
 	global TIME
 	global BACKOFF_HOSTS
 
@@ -153,11 +153,11 @@ def processArrivalEvent(gel, cur_ev):
 	# create service time of next arrival event
 
 	ran_time = negativeExponenetiallyDistributedTime(ARRIVAL_RATE) + TIME
-	next_arrival_event = Event(1, cur_ev.sending_host, cur_event.receiving_host, ran_time)
+	next_arrival_event = Event(1, cur_event.sending_host, cur_event.receiving_host, ran_time)
 	gel.insertEvent(first_arrival_event)
 
 	# generate new packet
-	new_packet = Packet(cur_event.sending_host, cur_ev.receiving_host, negativeExponenetiallyDistributedSize())
+	new_packet = Packet(cur_event.sending_host, cur_event.receiving_host, negativeExponenetiallyDistributedSize())
 	HOSTS[cur_event.sending_host].host_queue.insertPacket(new_packet)
 
 	# check if recently inserted packet is only packet in host's queue
@@ -183,7 +183,7 @@ def processReadyEvent(gel, cur_event):
 		# check whether packet we just sent was an acknowledgement packet
 		cur_packet = HOSTS[cur_event.sending_host].host_queue.topPacket()
 		if cur_packet.ack == False:
-			cur_packet.ack_needed = True
+			HOSTS[cur_event.sending_host].ack_needed = True
 
 		# successfully sent bytes
 		TOTAL_SUCCESSFULL_BYTES += packet_size
@@ -218,6 +218,28 @@ def processDestinationArrivalEvent(gel, cur_event):
 	BUSY = False
 
 
+def timeout(gel, cur_event):
+	# refer to last two sentences of part 5
+
+	if HOSTS[cur_event.sending_host].ack_needed == True:
+		# send again
+		new_ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, TIME)
+		processReadyEvent(new_ready_event)
+
+
+def decrementBackoffs(gel, BACKOFF_HOSTS, ev):
+	global TIME
+
+	# sensing every 0.01
+	TIME += 0.01
+	# need to decrement all hosts backoff counter since link is free
+	for i in BACKOFF_HOSTS:
+		HOSTS[i].backoff_counter -= 1
+		if not (HOSTS[i].backoff_counter > 0):
+			HOSTS[i].timeout(gel,ev)
+			BACKOFF_HOSTS.remove(i)
+
+
 if __name__ == '__main__':
 	
 	gel = GlobalEventList()
@@ -226,20 +248,22 @@ if __name__ == '__main__':
 	for i in range(0, NUM_HOST):
 		HOSTS.append(Host(i))
 
-        dest_host = random.randint(0, NUM_HOST)  
-        while i == dest_host:
-            dest_host = random.randint(0, NUM_HOST)
+		dest_host = random.randint(0, NUM_HOST)  
+		while i == dest_host:
+			dest_host = random.randint(0, NUM_HOST)
 
-        first_arrival_event = Event('1', i, dest_host, TIME)	# arrival, sending host idx, destination host index, time
-        gel.insertEvent(first_arrival_event)
+		first_arrival_event = Event(1, i, dest_host, TIME)	# arrival, sending host idx, destination host index, time
+		gel.insertEvent(first_arrival_event)
+
 
     # start
 	for i in range(0, 100000):
+
 		ev = gel.firstEvent()
 
 		# check link every iteration
 		if BUSY == False:
-			decrementBackoffs(BACKOFF_HOSTS)
+			decrementBackoffs(gel, BACKOFF_HOSTS, ev)
 
 		if ev.type == 1:
 			processArrivalEvent(gel, ev)
