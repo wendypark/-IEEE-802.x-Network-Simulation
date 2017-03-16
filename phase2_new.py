@@ -9,7 +9,7 @@ HOSTS = []
 BACKOFF_HOSTS = []
 CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
 NUM_HOST = 20
-T = 5
+T = 10
 ARR_RATE = [0.01, 0.05, 0.1, 0.3, 0.6, 0.8, 0.9] 				# 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, and 0.9 
 ARRIVAL_RATE = 0
 TOTAL_SUCCESSFULL_BYTES = 0
@@ -240,7 +240,7 @@ def start():
 	gel = GlobalEventList()
 
 	# create hosts
-	for i in range(0, NUM_HOST):
+	for i in range(0, NUM_HOST+1):
 		HOSTS.append(Host(i))
 
 		dest_host = random.randint(0, NUM_HOST)  
