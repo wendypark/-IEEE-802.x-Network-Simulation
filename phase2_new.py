@@ -51,7 +51,6 @@ class GlobalEventList(object):
 			cur_event = self.head
 			while cur_event.next is not None and cur_event.next.time < incoming_event.time:
 				cur_event = cur_event.next
-				break
 
 			incoming_event.next = cur_event.next
 			cur_event.next = incoming_event
@@ -156,7 +155,7 @@ def processArrivalEvent(gel, cur_event):
 
 	ran_time = negativeExponenetiallyDistributedTime(ARRIVAL_RATE) + TIME
 	next_arrival_event = Event(1, cur_event.sending_host, cur_event.receiving_host, ran_time)
-	gel.insertEvent(first_arrival_event)
+	gel.insertEvent(next_arrival_event)
 
 	# generate new packet
 	new_packet = Packet(cur_event.sending_host, cur_event.receiving_host, negativeExponenetiallyDistributedSize())
