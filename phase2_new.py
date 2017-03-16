@@ -9,6 +9,7 @@ HOSTS = []
 BACKOFF_HOSTS = []
 CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
 NUM_HOST = 10
+T = 5
 
 
 class Event(object):
@@ -18,6 +19,10 @@ class Event(object):
 		self.sending_host = sending_host
 		self.receiving_host = receiving_host
 		self.time = time
+		self.ack = False
+
+	def setAckEvent(self,is_ack):
+    	self.ack = is_ack
 
 	# def setIsAck(self,)
 
@@ -96,10 +101,14 @@ class Host(object):
 
 class Packet(object):
 
-    def __init__(self, service_time, p_size, ack=False):
-        self.service_t = service_time
+    def __init__(self, sending_host, receiving_host, p_size):
+		self.sending_host = sending_host
+		self.receiving_host = receiving_host
         self.packet_size = p_size
-        self.ack = ack
+        self.ack = False
+
+    def setAckPacket(self,is_ack):
+    	self.ack = is_ack
 
     def getServiceTime(self):
         return self.service_t
@@ -154,28 +163,29 @@ def processArrivalEvent(gel, cur_ev):
 	# check if recently inserted packet is only packet in host's queue
 	queue_size = HOSTS[cur_event.sending_host].host_queue.curBufferSize()
 	if queue_size == 1:
-		ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, DIFS + TIME)	# ready, sending host idx, destination host index
+		ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, DIFS + TIME)	# ready, sending host idx, destination host idx
 		gel.insertEvent(ready_event)
 
 
-def processReadyEvent(gel,cur_event):
+def processReadyEvent(gel, cur_event):
 	global TIME
+	global BUSY
+	global TOTAL_SUCCESSFULL_BYTES
 
 	if not BUSY:
 		# create departure event
 		BUSY = True
 		packet_size = HOSTS[cur_event.sending_host].host_queue.topPacket().getPacketSize()
-		new_departure_event = Event(2, cur_event.sending_host, cur_event.receiving_host, TIME + ((packet_size*8)/CHANNEL_CAP))
-		gel.insertEvent(new_departure_event)
+		new_dest_arrival_event = Event(3, cur_event.sending_host, cur_event.receiving_host, TIME + ((packet_size*8)/CHANNEL_CAP))
+		new_dest_arrival_event.setAckEvent(cur_event.ack)
+		gel.insertEvent(new_dest_arrival_event)
 
 		# check whether packet we just sent was an acknowledgement packet
-		# cur_packet = HOSTS[cur_event.sending_host].host_queue.topPacket()
-		# if cur_packet.ack == False:
-		# 	cur_packet.ack_needed = True
-		# else:
-		successful_send_receive(gel, cur_event)
+		cur_packet = HOSTS[cur_event.sending_host].host_queue.topPacket()
+		if cur_packet.ack == False:
+			cur_packet.ack_needed = True
 
-		# successfully send
+		# successfully sent bytes
 		TOTAL_SUCCESSFULL_BYTES += packet_size
 		HOSTS[cur_event.sending_host].trans_delay += packet_size
 		HOSTS[cur_event.sending_host].queue_delay += HOSTS[cur_event.sending_host].host_queue.topPacket().getServiceTime()
@@ -186,6 +196,26 @@ def processReadyEvent(gel,cur_event):
 			HOSTS[cur_event.sending_host].backoff_counter = rand_backoff
 			BACKOFF_HOSTS.append(cur_event.sending_host)
 
+
+def processDestinationArrivalEvent(gel, cur_event):
+	global BUSY
+
+	# arrive at destination. now make ack packet and set ack ready for return
+	if cur_event.ack == False:
+		ack_packet = Packet(cur_event.sending_host, cur_ev.receiving_host, 64)	# sending host idx, destination host idx, packet size
+		ack_packet.setAckPacket(True) 											# turn packet into acknowledgement packet
+		HOSTS[cur_event.sending_host].host_queue.insertPacket(new_packet)
+
+		ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, SIFS + TIME)
+		ready_event.setAckEvent(True)
+		gel.insertEvent(ready_event)
+
+	# ack packet arrive at sender. we are done
+	elif cur_event.ack == True:
+		self.ack_needed = False						# host got ack packet
+		successful_send_receive(gel, cur_event)		# generate next ready event with next packet in queue
+
+	BUSY = False
 
 
 if __name__ == '__main__':
@@ -206,7 +236,6 @@ if __name__ == '__main__':
     # start
 	for i in range(0, 100000):
 		ev = gel.firstEvent()
-		print ev
 
 		# check link every iteration
 		if BUSY == False:
@@ -217,6 +246,9 @@ if __name__ == '__main__':
 
 		elif ev.type == 2:
 			processReadyEvent(gel, ev)
+
+		elif ev.type == 3:
+			processDestinationArrivalEvent(gel, ev)
 
 		gel.removeFirstEvent()
 
