@@ -187,9 +187,11 @@ def processReadyEvent(gel, cur_event):
 			HOSTS[cur_event.sending_host].ack_needed = True
 
 		# successfully sent bytes
+
 		TOTAL_SUCCESSFULL_BYTES += packet_size
-		HOSTS[cur_event.sending_host].trans_delay += packet_size
-		HOSTS[cur_event.sending_host].queue_delay += TIME + packet_size
+		HOSTS[cur_event.sending_host].trans_delay += packet_size		
+		HOSTS[cur_event.sending_host].queue_delay += TIME + packet_size	# this wrong
+		print "total bytes %f" % TOTAL_SUCCESSFULL_BYTES
 
 	else:
 		if cur_event.sending_host not in BACKOFF_HOSTS:
@@ -201,11 +203,13 @@ def processReadyEvent(gel, cur_event):
 def processDestinationArrivalEvent(gel, cur_event):
 	global BUSY
 
+
+
 	# arrive at destination. now make ack packet and set ack ready for return
 	if cur_event.ack == False:
-		ack_packet = Packet(cur_event.sending_host, cur_ev.receiving_host, 64)	# sending host idx, destination host idx, packet size
+		ack_packet = Packet(cur_event.sending_host, cur_event.receiving_host, 64)	# sending host idx, destination host idx, packet size
 		ack_packet.setAckPacket(True) 											# turn packet into acknowledgement packet
-		HOSTS[cur_event.sending_host].host_queue.insertPacket(new_packet)
+		HOSTS[cur_event.sending_host].host_queue.insertPacket(ack_packet)
 
 		ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, SIFS + TIME)
 		ready_event.setAckEvent(True)
@@ -213,7 +217,7 @@ def processDestinationArrivalEvent(gel, cur_event):
 
 	# ack packet arrive at sender. we are done
 	elif cur_event.ack == True:
-		self.ack_needed = False						# host got ack packet
+		HOSTS[cur_event.sending_host].ack_needed = False						# host got ack packet
 		successful_send_receive(gel, cur_event)		# generate next ready event with next packet in queue
 
 	BUSY = False
@@ -225,7 +229,8 @@ def timeout(gel, cur_event):
 	if HOSTS[cur_event.sending_host].ack_needed == True:
 		# send again
 		new_ready_event = Event(2, cur_event.sending_host, cur_event.receiving_host, TIME)
-		processReadyEvent(new_ready_event)
+		gel.insertEvent(new_ready_event)
+		processReadyEvent(gel, cur_event)
 
 
 def decrementBackoffs(gel, BACKOFF_HOSTS, ev):
@@ -237,7 +242,7 @@ def decrementBackoffs(gel, BACKOFF_HOSTS, ev):
 	for i in BACKOFF_HOSTS:
 		HOSTS[i].backoff_counter -= 1
 		if not (HOSTS[i].backoff_counter > 0):
-			HOSTS[i].timeout(gel,ev)
+			timeout(gel,ev)
 			BACKOFF_HOSTS.remove(i)
 
 
@@ -265,7 +270,8 @@ if __name__ == '__main__':
 		# check link every iteration
 		if BUSY == False:
 			decrementBackoffs(gel, BACKOFF_HOSTS, ev)
-			TIME = ev.time
+		
+		TIME = ev.time
 
 		if ev.type == 1:
 			processArrivalEvent(gel, ev)
