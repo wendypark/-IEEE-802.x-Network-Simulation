@@ -1,6 +1,5 @@
 import math
 import random
-from Queue import PriorityQueue
 
 TIME = 0		# Global Time
 DIFS = 0.1		# Sending host wait time
@@ -11,7 +10,8 @@ BACKOFF_HOSTS = []
 CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
 NUM_HOST = 10
 T = 1
-ARRIVAL_RATE = 0.5				# 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, and 0.9 
+ARR_RATE = [0.01, 0.05, 0.1, 0.3, 0.6, 0.8, 0.9] 				# 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, and 0.9 
+ARRIVAL_RATE = 0
 TOTAL_SUCCESSFULL_BYTES = 0
 
 
@@ -237,8 +237,8 @@ def decrementBackoffs(gel, BACKOFF_HOSTS, ev):
 			BACKOFF_HOSTS.remove(i)
 
 
-if __name__ == '__main__':
-	
+def start():
+	global TIME
 	gel = GlobalEventList()
 
 	# create hosts
@@ -295,25 +295,7 @@ if __name__ == '__main__':
 
 
 
-
-# processArrivalEvent
-# 	- similar to what we had before
-
-# processReadyEvent
-# 	# process all the packets that needs to be transmitted
-# 	- if not busy:
-# 		we crease a response event. this means that we have successfully transmit
-# 		make channel busy
-# 		if this is not an ack packet:
-# 			indicate that the host sending host is waiting for an ack packet
-# 		else:
-# 			remove packet
-# 			indicate that host is not waiting for ack
-# 			generate next packet transmission
-# 	- else:
-# 		backoff
-#	
-
-
-# processResponseEvent
-# 	# destination host create the acknowledgement packet
+if __name__ == '__main__':
+	for i in ARR_RATE:
+		ARRIVAL_RATE = i
+		start()
