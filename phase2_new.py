@@ -8,8 +8,8 @@ BUSY = False	# Link status
 HOSTS = []
 BACKOFF_HOSTS = []
 CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
-NUM_HOST = 10
-T = 1
+NUM_HOST = 20
+T = 5
 ARR_RATE = [0.01, 0.05, 0.1, 0.3, 0.6, 0.8, 0.9] 				# 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, and 0.9 
 ARRIVAL_RATE = 0
 TOTAL_SUCCESSFULL_BYTES = 0
@@ -26,8 +26,6 @@ class Event(object):
 
 	def setAckEvent(self,is_ack):
 		self.ack = is_ack
-
-	# def setIsAck(self,)
 
 
 class GlobalEventList(object):
@@ -172,7 +170,7 @@ def processReadyEvent(gel, cur_event):
 		# create departure event
 		BUSY = True
 		packet_size = HOSTS[cur_event.sending_host].host_queue.topPacket().getPacketSize()
-		new_dest_arrival_event = Event(3, cur_event.sending_host, cur_event.receiving_host, TIME + ((packet_size*8)/CHANNEL_CAP))
+		new_dest_arrival_event = Event(3, cur_event.sending_host, cur_event.receiving_host, ((packet_size*8)/CHANNEL_CAP))
 		new_dest_arrival_event.setAckEvent(cur_event.ack)
 		gel.insertEvent(new_dest_arrival_event)
 
@@ -184,7 +182,7 @@ def processReadyEvent(gel, cur_event):
 		# successfully sent bytes
 
 		TOTAL_SUCCESSFULL_BYTES += packet_size
-		HOSTS[cur_event.sending_host].trans_delay += packet_size		
+		HOSTS[cur_event.sending_host].trans_delay += TIME + ((packet_size*8)/CHANNEL_CAP)	
 
 	else:
 		if cur_event.sending_host not in BACKOFF_HOSTS:
@@ -298,4 +296,6 @@ def start():
 if __name__ == '__main__':
 	for i in ARR_RATE:
 		ARRIVAL_RATE = i
+		print "ARRIVAL RATE: %.2f" % ARRIVAL_RATE
 		start()
+		print "\n"
