@@ -10,7 +10,8 @@ BACKOFF_HOSTS = []
 CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
 NUM_HOST = 10
 T = 5
-ARRIVAL_RATE = 0.01
+ARRIVAL_RATE = 0.01				# 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, and 0.9 
+TOTAL_SUCCESSFULL_BYTES = 0
 
 
 class Event(object):
@@ -50,6 +51,7 @@ class GlobalEventList(object):
 			cur_event = self.head
 			while cur_event.next is not None and cur_event.next.time < incoming_event.time:
 				cur_event = cur_event.next
+				break
 
 			incoming_event.next = cur_event.next
 			cur_event.next = incoming_event
@@ -188,7 +190,7 @@ def processReadyEvent(gel, cur_event):
 		# successfully sent bytes
 		TOTAL_SUCCESSFULL_BYTES += packet_size
 		HOSTS[cur_event.sending_host].trans_delay += packet_size
-		HOSTS[cur_event.sending_host].queue_delay += HOSTS[cur_event.sending_host].host_queue.topPacket().getServiceTime()
+		HOSTS[cur_event.sending_host].queue_delay += TIME + packet_size
 
 	else:
 		if cur_event.sending_host not in BACKOFF_HOSTS:
@@ -264,6 +266,7 @@ if __name__ == '__main__':
 		# check link every iteration
 		if BUSY == False:
 			decrementBackoffs(gel, BACKOFF_HOSTS, ev)
+			TIME = ev.time
 
 		if ev.type == 1:
 			processArrivalEvent(gel, ev)
@@ -277,6 +280,17 @@ if __name__ == '__main__':
 		gel.removeFirstEvent()
 
 
+	throughput = TOTAL_SUCCESSFULL_BYTES / TIME
+	print TIME
+
+	trans_delay = 0
+	queue_delay = 0
+	for i in range(0, NUM_HOST):
+		trans_delay += HOSTS[i].trans_delay
+		queue_delay += HOSTS[i].queue_delay
+
+	print 'Throughput = %.2f' % throughput
+	print 'Average Network Delay = %.2f' % ((trans_delay + queue_delay) / throughput)
 
 
 
