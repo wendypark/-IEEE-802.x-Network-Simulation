@@ -10,8 +10,8 @@ HOSTS = []
 BACKOFF_HOSTS = []
 CHANNEL_CAP = 11*(10**6)        # channel transmission capacity is 11Mbps
 NUM_HOST = 10
-T = 5
-ARRIVAL_RATE = 0.01				# 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, and 0.9 
+T = 1
+ARRIVAL_RATE = 0.5				# 0.01, 0.05, 0.1, 0.3, 0.6, 0.8, and 0.9 
 TOTAL_SUCCESSFULL_BYTES = 0
 
 
@@ -185,8 +185,6 @@ def processReadyEvent(gel, cur_event):
 
 		TOTAL_SUCCESSFULL_BYTES += packet_size
 		HOSTS[cur_event.sending_host].trans_delay += packet_size		
-		HOSTS[cur_event.sending_host].queue_delay += TIME + packet_size	# this wrong
-		print "total bytes %f" % TOTAL_SUCCESSFULL_BYTES
 
 	else:
 		if cur_event.sending_host not in BACKOFF_HOSTS:
@@ -197,8 +195,6 @@ def processReadyEvent(gel, cur_event):
 
 def processDestinationArrivalEvent(gel, cur_event):
 	global BUSY
-
-	print "dest"
 
 	# arrive at destination. now make ack packet and set ack ready for return
 	if cur_event.ack == False:
@@ -266,7 +262,12 @@ if __name__ == '__main__':
 		if BUSY == False:
 			decrementBackoffs(gel, BACKOFF_HOSTS, ev)
 		
-		TIME = ev.time
+		# print ev.time
+		# print i
+		# FOR SOME REASON, THERE ARE CERTAIN TIMES WHEN THE ev.time is very small. one of them is when i == 99999
+		# So below is a quick fix hahaha
+		if i != 99999:
+			TIME = ev.time
 
 		if ev.type == 1:
 			processArrivalEvent(gel, ev)
